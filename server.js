@@ -12,6 +12,8 @@ const CLIENT_A_ID = process.env.PINGONE_CLIENT_A_ID;
 const CLIENT_A_SECRET = process.env.PINGONE_CLIENT_A_SECRET;
 const CLIENT_B_ID = process.env.PINGONE_CLIENT_B_ID;
 const CLIENT_B_SECRET = process.env.PINGONE_CLIENT_B_SECRET;
+const RESOURCE_ID = process.env.PINGONE_RESOURCE_ID;
+const RESOURCE_SECRET = process.env.PINGONE_RESOURCE_SECRET;
 
 if (!DISCOVERY_URL) {
   throw new Error("Missing PINGONE_DISCOVERY_URL");
@@ -20,6 +22,10 @@ if (!DISCOVERY_URL) {
 let discoveryCache;
 let jwks;
 
+function setNoStore(res) {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Pragma", "no-cache");
+}
 async function getClientCredentialsToken(clientId, clientSecret) {
   const discovery = await getDiscovery();
 
@@ -215,6 +221,7 @@ app.get("/", (_req, res) => {
     <button onclick="callApi('/health', false)">Health</button>
     <button onclick="callApi('/protected', true)">Protected</button>
     <button onclick="callApi('/debug/claims', true)">Claims</button>
+    <button onclick="callApi('/debug/introspect', true)">Introspect</button>
   </div>
 
   <h2>Response</h2>
@@ -306,6 +313,58 @@ app.get("/demo/token-b", async (_req, res) => {
       token_type: tokenResponse.token_type,
       expires_in: tokenResponse.expires_in,
       scope: tokenResponse.scope
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/debug/introspect", async (req, res) => {
+  try {
+    setNoStore(res);
+
+    const token = getBearerToken(req);
+    if (!token) {
+      return res.status(401).json({ ok: false, error: "Missing bearer token" });
+    }
+
+    if (!RESOURCE_ID || !RESOURCE_SECRET) {
+      return res.status(500).json({
+        ok: false,
+        error: "Missing resource introspection credentials"
+      });
+    }
+
+    const discovery = await getDiscovery();
+    const basicAuth = Buffer.from(`${RESOURCE_ID}:${RESOURCE_SECRET}`).toString("base64");
+    const body = new URLSearchParams({ token });
+
+    const resp = await fetch(discovery.introspection_endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `Basic ${basicAuth}`
+      },
+      body
+    });
+
+    const text = await resp.text();
+
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return res.status(502).json({
+        ok: false,
+        error: "Non-JSON response from PingOne introspection endpoint",
+        detail: text
+      });
+    }
+
+    res.status(resp.ok ? 200 : resp.status).json({
+      ok: resp.ok,
+      upstream_status: resp.status,
+      introspection: json
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
