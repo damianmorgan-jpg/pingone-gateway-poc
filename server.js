@@ -118,6 +118,14 @@ app.get("/debug/claims", async (req, res) => {
   }
 });
 
+app.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    message: "PingOne gateway POC is running",
+    endpoints: ["/health", "/protected", "/debug/claims"]
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
 });
