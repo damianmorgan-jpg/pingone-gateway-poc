@@ -119,22 +119,6 @@ app.get("/debug/claims", async (req, res) => {
 });
 
 app.get("/", (_req, res) => {
-  res.json({
-    ok: true,
-    message: "PingOne gateway POC is running",
-    endpoints: ["/health", "/protected", "/debug/claims"]
-  });
-});
-
-app.get("/", (_req, res) => {
-  res.json({
-    ok: true,
-    message: "PingOne gateway POC is running",
-    endpoints: ["/health", "/protected", "/debug/claims"]
-  });
-});
-
-app.get("/", (_req, res) => {
   res.setHeader("Content-Type", "text/html");
   res.send(`
 <!doctype html>
